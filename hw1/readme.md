@@ -15,7 +15,7 @@
 
 ---
 # Usage
-- Open the `hw1.ipynb` with jupyer-notebook
+- Open the `hw1.ipynb` with jupyter-notebook
 - Run all cells
 - Done :)
 
