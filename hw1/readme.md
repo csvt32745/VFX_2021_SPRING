@@ -26,4 +26,5 @@
     - Response Curve: `./data/curve.jpg`
     - Headmap: `./data/heatmap.jpg`
     - HDR Result: `./data/result.exr`
-    - Tonemapped Result:  `./result.jpg`
+    - Tonemapped result: `./data/tonemapped_img/*`
+    - Final Tonemapped Result: `./result.jpg`
