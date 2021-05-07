@@ -4,18 +4,16 @@ import numpy as np
 import cv2
 import mediapy as media
 import itertools as it
+from scipy.spatial import KDTree
 pi2 = np.pi*2
 
 
 
-# %%
 def rotate_image(image, angle):
     image_center = tuple(np.array(image.shape[1::-1]) / 2)
     rot_mat = cv2.getRotationMatrix2D(image_center, angle, 1.0)
     result = cv2.warpAffine(image, rot_mat, image.shape[1::-1], flags=cv2.INTER_LINEAR)
     return result
-
-# %% [markdown]
 
 
 def computeGradient(blk):
@@ -40,6 +38,13 @@ def computeHessian(blk):
     return hess
 
 def SIFT(img, SIGMA=1.6, S=5, OCTAVE=4, show=None, contrast_threshold=.3):
+    ''' 
+    Return:
+        ids:        (num of keypoints, 2): (i, j)
+                    Discrete indices of keypoints in img
+        desc:       (num of keypoints, 128)
+                    128D-Discriptors
+    '''
     # ## DoG in Scale-Space
 
     def normalize(img):
@@ -256,42 +261,14 @@ def SIFT(img, SIGMA=1.6, S=5, OCTAVE=4, show=None, contrast_threshold=.3):
             if num_near_peak > 2:
                 # abort
                 continue
-            elif num_near_peak == 1:
+            else:
                 for peak_id in np.argwhere(near_peak):
-                    # orient = bin[max_id]
-                    # mag, ang = sampleRotatedCell(o, s, pnti, pntj, orient)
-                    # new_cells_ang.append(ang)
-                    # new_cells_mag.append(mag)
-
-                    # orients.append(orient)
                     orient = bin[peak_id[0]]
                     mag, ang = sampleRotatedCell(o, s, pnti, pntj, orient)
                     new_cells_ang.append(ang)
                     new_cells_mag.append(mag)
                     new_ids.append(i)
                     orients.append(orient)
-                # mags.append(hist[max_id])
-            # else:
-            #     # 2 peaks
-            #     peak_id = np.argwhere(near_peak)
-                
-            #     orient = bin[peak_id[0]]
-
-            #     mag, ang = sampleRotatedCell(o, s, pnti, pntj, orient)
-            #     new_cells_ang.append(ang)
-            #     new_cells_mag.append(mag)
-
-            #     orients.append(orient)
-            #     # mags.append(hist[peak_id[0]])
-
-            #     orient = bin[peak_id[1]]
-            #     mag, ang = sampleRotatedCell(o, s, pnti, pntj, orient)
-            #     new_cells_ang.append(ang)
-            #     new_cells_mag.append(mag)
-            #     orients.append(orient)
-            #     # mags.append(hist[peak_id[1]])
-
-            #     new_ids += [i, i]
 
         new_cells_mag = np.array(new_cells_mag)
         new_cells_ang = np.array(new_cells_ang)
@@ -343,10 +320,41 @@ def SIFT(img, SIGMA=1.6, S=5, OCTAVE=4, show=None, contrast_threshold=.3):
     desc[desc>.2] = .2
     desc = (desc/np.linalg.norm(desc, ord=2, axis=1, keepdims=True)).reshape(-1, 128)
 
-    return ids, ids_orig, desc
+    # Calculate the quantized indices
+    ids = (ids_orig[:, 2:]*(2**ids_orig[:, [0]])).astype(int)
+    return np.array(ids), desc
 
+def queryPoints(pimg, pdesc, pids, min_matches=-1, ret_match_img=False):
+    ''' 
+    Input:
+        pimg:           img pair (2, h, w)
+        pdesc:          descriptor pair (2, len(desc))
+        pids:           points coordinate pair (2, len(desc), 2)
+        ret_match_img:  (opt) return img from draw_matches?
+
+    Output:
+        good_trainIdx:  cooresponded points idx, can be used as pids[0][good_trainIdx]
+        good_queryIdx:  cooresponded points idx, can be used as pids[1][good_queryIdx]
+        mimg:           (opt) returned img from draw_matches
+    '''
+    tree = KDTree(pdesc[0])
+    dist, trainIdx = tree.query(pdesc[1], workers=8, k=2)
+    threshold = 0.75
+    sel = dist[:, 0] < threshold*dist[:, 1]
+    while np.count_nonzero(sel) < min_matches and threshold < 0.95:
+        print(f"Insufficient Matches: {np.count_nonzero(sel)}, threshold={threshold}")
+        threshold += 0.05
+        sel = dist[:, 0] < threshold*dist[:, 1]
+    print(f"Good Matches: {np.count_nonzero(sel)}, threshold={threshold}")
+    good_trainIdx = trainIdx[:, 0][sel]
+    good_queryIdx = np.where(sel)[0]
+    if ret_match_img:
+        mimg = draw_matches(pimg[0], pids[0][:, ::-1], pimg[1], pids[1][:, ::-1],           good_trainIdx, good_queryIdx)
+        return good_trainIdx, good_queryIdx, mimg
+    return good_trainIdx, good_queryIdx
 
 def draw_matches(img1, kp1, img2, kp2, trainIdx, queryIdx):
+    ''' Draw matched points like cv2.draw_matches '''
     if len(img1.shape) == 3:
         new_shape = (max(img1.shape[0], img2.shape[0]), img1.shape[1]+img2.shape[1], img1.shape[2])
     elif len(img1.shape) == 2:
@@ -366,5 +374,4 @@ def draw_matches(img1, kp1, img2, kp2, trainIdx, queryIdx):
         cv2.line(new_img, end1, end2, c, thickness)
         cv2.circle(new_img, end1, r, c, thickness)
         cv2.circle(new_img, end2, r, c, thickness)
-
     return new_img
