@@ -5,6 +5,7 @@ import os
 import time as t
 import random
 import math
+import multiprocessing as mp
 
 class DMatch:
     def __init__(self, **entries):
@@ -41,7 +42,7 @@ def feature_match(des1,des2):
     return matches
 
 def ransacShift(corr, inline_dist, inline_threshold, time):
-    finalshift = []
+    finalshift = [0, 0]
     max_inline_count = -1
     corr_count = len(corr)
     for i in range(time):
@@ -119,7 +120,7 @@ def blend(l_img, r_img, shift):
     shiftR = shiftR[:, :blend_shape]
     midle = blend_shape//2
     half_window = 3
-    left_initail_y = 0 if shift[0] > 0 else -shift[0]
+    left_initail_y = 0 if shift[1] > 0 else -shift[1]
     shiftR[left_initail_y:(l_img.shape[0] + left_initail_y), 0:(midle-half_window)] = l_img[0:l_img.shape[0], 0:(midle-half_window)]
     for i in range(half_window*2):
         ratio = i / (half_window*2)
@@ -141,12 +142,13 @@ def parse(data_path, file_name):
     return(imglist, focals)
 
 if __name__ == '__main__':
-    data_path = 'parrington'
-    file_name = 'pano_list.txt'
+    data_path = 'yang'# 'parrington'# 
+    file_name = './yang/yang.txt' #'pano_list.txt'#
     imglist, focals = parse(data_path, file_name)
-    cylinderImgs = [cylinderProject(imglist[i], focals[i]) for i in range(len(imglist))]
+    # cylinderImgs = [cylinderProject(imglist[i], focals[i]) for i in range(len(imglist))]
+    pool = mp.Pool(mp.cpu_count()//2)
+    cylinderImgs = pool.starmap(cylinderProject, [(imglist[i], focals[i]) for i in range(len(imglist))])
     xshape = 0
-    
     shifts = []
     ConcateImg = cylinderImgs[0].copy()
     for i in range(1, len(cylinderImgs)):
