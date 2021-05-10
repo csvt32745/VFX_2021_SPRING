@@ -52,7 +52,13 @@ def SIFT(img, SIGMA=1.6, S=5, OCTAVE=4, show=None, contrast_threshold=.3):
         ret = img.copy() - min
         ret /= ret.max()
         return ret
-    img = img.copy()
+    if img.max() > 1.:
+        img = img.astype(np.float32)/255
+    else:
+        img = img.copy()
+
+
+
     mult = 2**(1/(S-1))
     scale_imgs = []
     gs_imgs = []
@@ -321,16 +327,15 @@ def SIFT(img, SIGMA=1.6, S=5, OCTAVE=4, show=None, contrast_threshold=.3):
     desc = (desc/np.linalg.norm(desc, ord=2, axis=1, keepdims=True)).reshape(-1, 128)
 
     # Calculate the quantized indices
-    ids = (ids_orig[:, 2:]*(2**ids_orig[:, [0]])).astype(int)
+    ids = (ids_orig[:, 2:]*(2**ids_orig[:, [0]]))
     return np.array(ids), desc
 
-def queryPoints(pimg, pdesc, pids, min_matches=-1, ret_match_img=False):
+def queryPoints(pdesc, pids, min_matches=-1, ret_match_img=None):
     ''' 
     Input:
-        pimg:           img pair (2, h, w)
         pdesc:          descriptor pair (2, len(desc))
         pids:           points coordinate pair (2, len(desc), 2)
-        ret_match_img:  (opt) return img from draw_matches?
+        ret_match_img:  (opt) img pair (2, h, w) for returning img from draw_matches
 
     Output:
         good_trainIdx:  cooresponded points idx, can be used as pids[0][good_trainIdx]
@@ -349,7 +354,7 @@ def queryPoints(pimg, pdesc, pids, min_matches=-1, ret_match_img=False):
     good_trainIdx = trainIdx[:, 0][sel]
     good_queryIdx = np.where(sel)[0]
     if ret_match_img:
-        mimg = draw_matches(pimg[0], pids[0][:, ::-1], pimg[1], pids[1][:, ::-1],           good_trainIdx, good_queryIdx)
+        mimg = draw_matches(ret_match_img[0], pids[0][:, ::-1], ret_match_img[1], pids[1][:, ::-1],           good_trainIdx, good_queryIdx)
         return good_trainIdx, good_queryIdx, mimg
     return good_trainIdx, good_queryIdx
 
