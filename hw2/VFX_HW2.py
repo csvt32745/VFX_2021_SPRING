@@ -52,7 +52,8 @@ def ransacShift(corr, inline_dist, inline_threshold, time):
         shift = match_p[0] - match_p[1]
         shifted = corr[:, 1] + shift
         diff = corr[:, 0] - shifted
-
+        if np.linalg.norm(shift, ord=2) < 50:
+            continue
         # error = np.sqrt((diff**2).sum(axis = 1))
         error = np.linalg.norm(diff, ord=2, axis=1)
         inline_count = len(np.where(error < inline_dist)[0])
@@ -101,7 +102,7 @@ def stitch(kp1, des1, kp2, des2, min_matches=-1):
     corrList = np.asarray(corrList)
         # corrList.append([lx, ly, rx, ry])
     # Do Ransac and Calculate global shift
-    distance = 1
+    distance = 3
     threshold = 0.9
     time = 5000
     shift = ransacShift(corrList, distance, threshold, time)

@@ -344,7 +344,7 @@ def queryPoints(pdesc, pids, min_matches=-1, ret_match_img=None):
     '''
     tree = KDTree(pdesc[0])
     dist, trainIdx = tree.query(pdesc[1], workers=8, k=2)
-    threshold = 0.75
+    threshold = 0.6
     sel = dist[:, 0] < threshold*dist[:, 1]
     while np.count_nonzero(sel) < min_matches and threshold < 0.95:
         print(f"Insufficient Matches: {np.count_nonzero(sel)}, threshold={threshold}")
